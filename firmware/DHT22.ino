@@ -34,9 +34,9 @@ void setup()
   Blynk.begin(auth);
 
  DHTnextSampleTime = 0;  // Start the first sample immediately
- Particle.variable("result", resultstr, STRING);
+ Spark.variable("result", resultstr, STRING);
 
- Particle.publish("DHT22 - firmware version", VERSION, 60, PRIVATE);
+ Spark.publish("DHT22 - firmware version", VERSION, 60, PRIVATE);
 
 }
 
@@ -68,7 +68,7 @@ void loop()
 
   char tempInChar[32];
   sprintf(tempInChar,"%0d.%d", (int)temp, temp1);
-  Particle.publish("The temperature from the dht22 is:", tempInChar, 60, PRIVATE);
+  Spark.publish("The temperature from the dht22 is:", tempInChar, 60, PRIVATE);
 
   //virtual pin 1 will be the temperature
   Blynk.virtualWrite(V1, tempInChar);
@@ -80,7 +80,7 @@ void loop()
   int humid1 = (humid - (int)humid) * 100;
 
   sprintf(tempInChar,"%0d.%d", (int)humid, humid1);
-  Particle.publish("The humidity from the dht22 is:", tempInChar, 60, PRIVATE);
+  Spark.publish("The humidity from the dht22 is:", tempInChar, 60, PRIVATE);
 
   //virtual pin 2 will be the humidity
   Blynk.virtualWrite(V2, tempInChar);
