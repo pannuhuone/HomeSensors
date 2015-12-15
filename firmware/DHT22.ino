@@ -1,4 +1,4 @@
-#include "blynk/blynk.h"
+#include "blynk.h"
 #include "PietteTech_DHT.h"
 
 // system defines
