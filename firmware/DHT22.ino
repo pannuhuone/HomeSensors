@@ -20,7 +20,7 @@
 // system defines
 #define DHTTYPE  DHT22                 // Sensor type DHT11/21/22/AM2301/AM2302
 #define DHTPIN   4         	           // Digital pin for communications
-#define DHT_SAMPLE_INTERVAL   60000    // Sample every minute
+#define DHT_SAMPLE_INTERVAL   5000     // Sample every minute
 
 //declaration
 void dht_wrapper(); // must be declared before the lib initialization
@@ -29,31 +29,24 @@ void dht_wrapper(); // must be declared before the lib initialization
 PietteTech_DHT DHT(DHTPIN, DHTTYPE, dht_wrapper);
 
 // globals
-unsigned int DHTnextSampleTime;	    // Next time we want to start sample
-bool bDHTstarted;		    // flag to indicate we started acquisition
-int n;                              // counter
+unsigned int DHTnextSampleTime;	       // Next time we want to start sample
+bool bDHTstarted;		                   // flag to indicate we started acquisition
+int n;                                 // counter
 
-//this is coming from http://www.instructables.com/id/Datalogging-with-Spark-Core-Google-Drive/?ALLSTEPS
+// this is coming from http://www.instructables.com/id/Datalogging-with-Spark-Core-Google-Drive/?ALLSTEPS
 char resultstr[64]; //String to store the sensor data
 
 //DANGER - DO NOT SHARE!!!!
-char auth[] = "01234567890123456789"; // Put your blynk token here
+char auth[] = "01234567890123456789";  // Put your blynk token here
 //DANGER - DO NOT SHARE!!!!
-
-char VERSION[64] = "0.04";
-
-#define READ_INTERVAL 60000
 
 void setup()
 {
 
   Blynk.begin(auth);
 
- DHTnextSampleTime = 0;  // Start the first sample immediately
- Spark.variable("result", resultstr, STRING);
-
- Spark.publish("DHT22 - firmware version", VERSION, 60, PRIVATE);
-
+  DHTnextSampleTime = 0;  // Start the first sample immediately
+  Spark.variable("result", resultstr, STRING);
 }
 
 
@@ -63,49 +56,78 @@ void dht_wrapper() {
     DHT.isrCallback();
 }
 
+
 void loop()
 {
 
   Blynk.run(); // all the Blynk magic happens here
 
-
   // Check if we need to start the next sample
   if (millis() > DHTnextSampleTime) {
+	   if (!bDHTstarted) {		// start the sample
+       DHT.acquire();
+       bDHTstarted = true;
+     }
 
-	if (!bDHTstarted) {		// start the sample
-	    DHT.acquire();
-	    bDHTstarted = true;
-	}
+     if (!DHT.acquiring()) {		// has sample completed?
 
- if (!DHT.acquiring()) {		// has sample completed?
+       // get DHT status
+       int result = DHT.getStatus();
 
-  float temp = (float)DHT.getCelsius();
-  int temp1 = (temp - (int)temp) * 100;
+       // Change Serial.print to Spark.Publish !!!!!
+       Serial.print("Read sensor: ");
+       switch (result) {
+         case DHTLIB_OK:
+         Serial.println("OK");
+         break;
+         case DHTLIB_ERROR_CHECKSUM:
+         Serial.println("Error\n\r\tChecksum error");
+         break;
+         case DHTLIB_ERROR_ISR_TIMEOUT:
+         Serial.println("Error\n\r\tISR time out error");
+         break;
+         case DHTLIB_ERROR_RESPONSE_TIMEOUT:
+         Serial.println("Error\n\r\tResponse time out error");
+         break;
+         case DHTLIB_ERROR_DATA_TIMEOUT:
+         Serial.println("Error\n\r\tData time out error");
+         break;
+         case DHTLIB_ERROR_ACQUIRING:
+         Serial.println("Error\n\r\tAcquiring");
+         break;
+         case DHTLIB_ERROR_DELTA:
+         Serial.println("Error\n\r\tDelta time to small");
+         break;
+         case DHTLIB_ERROR_NOTSTARTED:
+         Serial.println("Error\n\r\tNot started");
+         break;
+         default:
+         Serial.println("Unknown error");
+         break;
+       }
 
-  char tempInChar[32];
-  sprintf(tempInChar,"%0d.%d", (int)temp, temp1);
-  Spark.publish("The temperature from the dht22 is:", tempInChar, 60, PRIVATE);
+       float temp = (float)DHT.getCelsius();
+       int temp1 = (temp - (int)temp) * 100;
 
-  //virtual pin 1 will be the temperature
-  Blynk.virtualWrite(V1, tempInChar);
+       char tempInChar[32];
+       sprintf(tempInChar,"%0d.%d", (int)temp, temp1);
+       Spark.publish("Temperature: ", tempInChar, 60, PRIVATE);
 
-  //google docs can get this variable
-  sprintf(resultstr, "{\"t\":%s}", tempInChar);
+       // virtual pin 1 will be the temperature
+       Blynk.virtualWrite(V1, tempInChar);
 
-  float humid = (float)DHT.getHumidity();
-  int humid1 = (humid - (int)humid) * 100;
+       float humid = (float)DHT.getHumidity();
+       int humid1 = (humid - (int)humid) * 100;
 
-  sprintf(tempInChar,"%0d.%d", (int)humid, humid1);
-  Spark.publish("The humidity from the dht22 is:", tempInChar, 60, PRIVATE);
+       sprintf(tempInChar,"%0d.%d", (int)humid, humid1);
+       Spark.publish("Humidity:", tempInChar, 60, PRIVATE);
 
-  //virtual pin 2 will be the humidity
-  Blynk.virtualWrite(V2, tempInChar);
+       // virtual pin 2 will be the humidity
+       Blynk.virtualWrite(V2, tempInChar);
 
-  n++;  // increment counter
-  bDHTstarted = false;  // reset the sample flag so we can take another
-  DHTnextSampleTime = millis() + DHT_SAMPLE_INTERVAL;  // set the time for next sample
- }
-
-}
-
+       n++;  // increment counter
+       bDHTstarted = false;  // reset the sample flag so we can take another
+       DHTnextSampleTime = millis() + DHT_SAMPLE_INTERVAL;  // set the time for next sample
+     }
+   }
 }
