@@ -1,3 +1,19 @@
+/*
+ * FILE:        DHT22.ino
+ * PURPOSE:     DHT22 sensor usage with DHT library.
+ * LICENSE:     GPL v3 (http://www.gnu.org/licenses/gpl.html)
+ *
+ * Based on Scott Piette example (https://github.com/piettetech/PietteTech_DHT)
+ * and Gustavo Gonnet's project from hackster.io site
+ * (https://particle.hackster.io/gusgonnet/temperature-humidity-monitor-with-blynk-7faa51?ref=tag&ref_id=blynk&offset=0)
+ * Thanks guys, good work!
+ *
+ * Temperature and humidity monitorin with DHT22 sensor using
+ * Particle Photon.
+ *
+ * Teemu Kulma teemu.kulma@iki.fi
+ */
+
 #include "blynk.h"
 #include "PietteTech_DHT.h"
 
