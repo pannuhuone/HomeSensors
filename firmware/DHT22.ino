@@ -18,9 +18,9 @@
 #include "PietteTech_DHT.h"
 
 // system defines
-#define DHTTYPE  DHT22                 // Sensor type DHT11/21/22/AM2301/AM2302
-#define DHTPIN   4         	           // Digital pin for communications
-#define DHT_SAMPLE_INTERVAL   5000     // Sample every minute
+#define DHTTYPE               DHT22    // Sensor type DHT11/21/22/AM2301/AM2302
+#define DHTPIN                4        // Digital pin for communications
+#define DHT_SAMPLE_INTERVAL   60000    // Sample every minute
 
 //declaration
 void dht_wrapper(); // must be declared before the lib initialization
@@ -37,7 +37,7 @@ int n;                                 // counter
 char resultstr[64]; //String to store the sensor data
 
 //DANGER - DO NOT SHARE!!!!
-char auth[] = "01234567890123456789";  // Put your blynk token here
+char auth[] = "WILLBECHANGEDTOBLYNKTOKEN";  // Put your blynk token here
 //DANGER - DO NOT SHARE!!!!
 
 void setup()
