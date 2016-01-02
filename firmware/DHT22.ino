@@ -16,14 +16,34 @@
 
 #include "blynk.h"
 #include "PietteTech_DHT.h"
+#include "HttpClient.h"
 
 // system defines
 #define DHTTYPE               DHT22    // Sensor type DHT11/21/22/AM2301/AM2302
 #define DHTPIN                4        // Digital pin for communications
+<<<<<<< HEAD
 #define DHT_SAMPLE_INTERVAL   60000    // Sample every minute
+=======
+#define DHT_SAMPLE_INTERVAL   300000   // Sample interval (60000 = 1 minute)
+>>>>>>> origin/master
 
-//declaration
+//DANGER - DO NOT SHARE!!!!
+#define UBIDOTS_TEMP_VARIABLE_ID "UBIDOTSVARIABLEID1"
+#define UBIDOTS_HUMID_VARIABLE_ID "UBIDOTSVARIABLEID2"
+#define UBIDOTS_TOKEN "UBIDOTSTOKEN"
+//DANGER - DO NOT SHARE!!!!
+
+// Declaration
 void dht_wrapper(); // must be declared before the lib initialization
+
+// Headers currently need to be set at init, useful for API keys etc.
+http_header_t headers[] = {
+    { "Content-Type", "application/json" },
+    { NULL, NULL } // NOTE: Always terminate headers will NULL
+};
+
+http_request_t request;
+http_response_t response;
 
 // Lib instantiate
 PietteTech_DHT DHT(DHTPIN, DHTTYPE, dht_wrapper);
@@ -32,6 +52,11 @@ PietteTech_DHT DHT(DHTPIN, DHTTYPE, dht_wrapper);
 unsigned int DHTnextSampleTime;	       // Next time we want to start sample
 bool bDHTstarted;		                   // flag to indicate we started acquisition
 int n;                                 // counter
+double TempC;                          // Temperature from the sensor
+double Humid;                          // Humidity from the sensor
+int readStatus;
+
+HttpClient http;
 
 // this is coming from http://www.instructables.com/id/Datalogging-with-Spark-Core-Google-Drive/?ALLSTEPS
 char resultstr[64]; //String to store the sensor data
@@ -42,11 +67,17 @@ char auth[] = "WILLBECHANGEDTOBLYNKTOKEN";  // Put your blynk token here
 
 void setup()
 {
+  request.hostname = "things.ubidots.com";
+  request.port = 80;
 
   Blynk.begin(auth);
 
   DHTnextSampleTime = 0;  // Start the first sample immediately
   Spark.variable("result", resultstr, STRING);
+
+  Spark.variable("readStatus", readStatus);
+  Spark.variable("Temperature", TempC);
+  Spark.variable("Humidity", Humid);
 }
 
 
@@ -59,7 +90,6 @@ void dht_wrapper() {
 
 void loop()
 {
-
   Blynk.run(); // all the Blynk magic happens here
 
   // Check if we need to start the next sample
@@ -74,55 +104,74 @@ void loop()
        // get DHT status
        int result = DHT.getStatus();
 
-       // Change Serial.print to Spark.Publish !!!!!
-       Serial.print("Read sensor: ");
        switch (result) {
          case DHTLIB_OK:
-         Serial.println("OK");
+         Spark.publish("Status", "Read sensor: OK", 60, PRIVATE);
+         readStatus = 0;
          break;
          case DHTLIB_ERROR_CHECKSUM:
-         Serial.println("Error\n\r\tChecksum error");
+         Spark.publish("Status", "Read sensor: Error - Checksum error", 60, PRIVATE);
+         readStatus = 1;
          break;
          case DHTLIB_ERROR_ISR_TIMEOUT:
-         Serial.println("Error\n\r\tISR time out error");
+         Spark.publish("Status", "Read sensor: Error - ISR time out error", 60, PRIVATE);
+         readStatus = 2;
          break;
          case DHTLIB_ERROR_RESPONSE_TIMEOUT:
-         Serial.println("Error\n\r\tResponse time out error");
+         Spark.publish("Status", "Read sensor: Error - Response time out error", 60, PRIVATE);
+         readStatus = 3;
          break;
          case DHTLIB_ERROR_DATA_TIMEOUT:
-         Serial.println("Error\n\r\tData time out error");
+         Spark.publish("Status", "Read sensor: Error - Data time out error", 60, PRIVATE);
+         readStatus = 4;
          break;
          case DHTLIB_ERROR_ACQUIRING:
-         Serial.println("Error\n\r\tAcquiring");
+         Spark.publish("Status", "Read sensor: Error - Acquiring", 60, PRIVATE);
+         readStatus = 5;
          break;
          case DHTLIB_ERROR_DELTA:
-         Serial.println("Error\n\r\tDelta time to small");
+         Spark.publish("Status", "Read sensor: Error - Delta time to small", 60, PRIVATE);
+         readStatus = 6;
          break;
          case DHTLIB_ERROR_NOTSTARTED:
-         Serial.println("Error\n\r\tNot started");
+         Spark.publish("Status", "Read sensor: Error - Not started", 60, PRIVATE);
+         readStatus = 7;
          break;
          default:
-         Serial.println("Unknown error");
+         Spark.publish("Status", "Read sensor: Unknown error", 60, PRIVATE);
+         readStatus = 8;
          break;
        }
 
        float temp = (float)DHT.getCelsius();
+       TempC = round(DHT.getCelsius()*10)/10;
        int temp1 = (temp - (int)temp) * 100;
+
+       // Ubidots temp variable
+       request.path = "/api/v1.6/variables/"UBIDOTS_TEMP_VARIABLE_ID"/values?token="UBIDOTS_TOKEN;
+       request.body = "{\"value\":" + String(TempC) + "}";
+       http.post(request, response, headers);
 
        char tempInChar[32];
        sprintf(tempInChar,"%0d.%d", (int)temp, temp1);
-       Spark.publish("Temperature: ", tempInChar, 60, PRIVATE);
+       Spark.publish("Temperature", tempInChar, 60, PRIVATE);
 
-       // virtual pin 1 will be the temperature
+       // Virtual pin 1 will be the temperature
        Blynk.virtualWrite(V1, tempInChar);
 
        float humid = (float)DHT.getHumidity();
+       Humid = round(DHT.getHumidity()*10)/10;
        int humid1 = (humid - (int)humid) * 100;
 
-       sprintf(tempInChar,"%0d.%d", (int)humid, humid1);
-       Spark.publish("Humidity:", tempInChar, 60, PRIVATE);
+       // Ubidots
+       request.path = "/api/v1.6/variables/"UBIDOTS_HUMID_VARIABLE_ID"/values?token="UBIDOTS_TOKEN;
+       request.body = "{\"value\":" + String(Humid) + "}";
+       http.post(request, response, headers);
 
-       // virtual pin 2 will be the humidity
+       sprintf(tempInChar,"%0d.%d", (int)humid, humid1);
+       Spark.publish("Humidity", tempInChar, 60, PRIVATE);
+
+       // Virtual pin 2 will be the humidity
        Blynk.virtualWrite(V2, tempInChar);
 
        n++;  // increment counter
