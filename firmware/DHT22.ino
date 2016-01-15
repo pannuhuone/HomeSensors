@@ -16,34 +16,19 @@
 
 #include "blynk.h"
 #include "PietteTech_DHT.h"
-#include "HttpClient.h"
 
 // system defines
 #define DHTTYPE               DHT22    // Sensor type DHT11/21/22/AM2301/AM2302
 #define DHTPIN                4        // Digital pin for communications
-<<<<<<< HEAD
-#define DHT_SAMPLE_INTERVAL   60000    // Sample every minute
-=======
-#define DHT_SAMPLE_INTERVAL   300000   // Sample interval (60000 = 1 minute)
->>>>>>> origin/master
+#define DHT_SAMPLE_INTERVAL   300000    // Sample every minute (1min = 60000)
 
 //DANGER - DO NOT SHARE!!!!
 #define UBIDOTS_TEMP_VARIABLE_ID "UBIDOTSVARIABLEID1"
 #define UBIDOTS_HUMID_VARIABLE_ID "UBIDOTSVARIABLEID2"
-#define UBIDOTS_TOKEN "UBIDOTSTOKEN"
 //DANGER - DO NOT SHARE!!!!
 
 // Declaration
 void dht_wrapper(); // must be declared before the lib initialization
-
-// Headers currently need to be set at init, useful for API keys etc.
-http_header_t headers[] = {
-  { "Content-Type", "application/json" },
-  { NULL, NULL } // NOTE: Always terminate headers will NULL
-};
-
-http_request_t request;
-http_response_t response;
 
 // Lib instantiate
 PietteTech_DHT DHT(DHTPIN, DHTTYPE, dht_wrapper);
@@ -56,20 +41,15 @@ double TempC;                          // Temperature from the sensor
 double Humid;                          // Humidity from the sensor
 int readStatus;
 
-HttpClient http;
-
 // this is coming from http://www.instructables.com/id/Datalogging-with-Spark-Core-Google-Drive/?ALLSTEPS
 char resultstr[64]; //String to store the sensor data
 
 //DANGER - DO NOT SHARE!!!!
-char auth[] = "WILLBECHANGEDTOBLYNKTOKEN";  // Put your blynk token here
+char auth[] = "01234567890123456789";  // Put your blynk token here
 //DANGER - DO NOT SHARE!!!!
 
 void setup()
 {
-  request.hostname = "things.ubidots.com";
-  request.port = 80;
-
   Blynk.begin(auth);
 
   DHTnextSampleTime = 0;  // Start the first sample immediately
@@ -148,11 +128,6 @@ void loop()
         TempC = round(DHT.getCelsius()*10)/10;
         int temp1 = (temp - (int)temp) * 100;
 
-        // Ubidots temp variable
-        request.path = "/api/v1.6/variables/"UBIDOTS_TEMP_VARIABLE_ID"/values?token="UBIDOTS_TOKEN;
-        request.body = "{\"value\":" + String(TempC) + "}";
-        http.post(request, response, headers);
-
         char tempInChar[32];
         sprintf(tempInChar,"%0d.%d", (int)temp, temp1);
         Spark.publish("Temperature", tempInChar, 60, PRIVATE);
@@ -163,11 +138,6 @@ void loop()
         float humid = (float)DHT.getHumidity();
         Humid = round(DHT.getHumidity()*10)/10;
         int humid1 = (humid - (int)humid) * 100;
-
-        // Ubidots
-        request.path = "/api/v1.6/variables/"UBIDOTS_HUMID_VARIABLE_ID"/values?token="UBIDOTS_TOKEN;
-        request.body = "{\"value\":" + String(Humid) + "}";
-        http.post(request, response, headers);
 
         sprintf(tempInChar,"%0d.%d", (int)humid, humid1);
         Spark.publish("Humidity", tempInChar, 60, PRIVATE);
