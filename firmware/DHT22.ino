@@ -22,11 +22,6 @@
 #define DHTPIN                4        // Digital pin for communications
 #define DHT_SAMPLE_INTERVAL   300000    // Sample every minute (1min = 60000)
 
-//DANGER - DO NOT SHARE!!!!
-#define UBIDOTS_TEMP_VARIABLE_ID "UBIDOTSVARIABLEID1"
-#define UBIDOTS_HUMID_VARIABLE_ID "UBIDOTSVARIABLEID2"
-//DANGER - DO NOT SHARE!!!!
-
 // Declaration
 void dht_wrapper(); // must be declared before the lib initialization
 
