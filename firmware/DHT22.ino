@@ -20,7 +20,8 @@
 // system defines
 #define DHTTYPE               DHT22    // Sensor type DHT11/21/22/AM2301/AM2302
 #define DHTPIN                4        // Digital pin for communications
-#define DHT_SAMPLE_INTERVAL   300000    // Sample every minute (1min = 60000)
+#define DHT_SAMPLE_INTERVAL   30000    // Sample every minute (1min = 60000)
+#define PHOTON_PREFIX_1       "Outside_" // Prefix for sensor
 
 // Declaration
 void dht_wrapper(); // must be declared before the lib initialization
@@ -34,7 +35,8 @@ bool bDHTstarted;		                   // flag to indicate we started acquisition
 int n;                                 // counter
 double TempC;                          // Temperature from the sensor
 double Humid;                          // Humidity from the sensor
-int readStatus;
+int readStatus;                        // Status (int) when reading sensor
+int rssi;                              // WiFi RSSI signal strength
 
 // this is coming from http://www.instructables.com/id/Datalogging-with-Spark-Core-Google-Drive/?ALLSTEPS
 char resultstr[64]; //String to store the sensor data
@@ -48,20 +50,19 @@ void setup()
   Blynk.begin(auth);
 
   DHTnextSampleTime = 0;  // Start the first sample immediately
-  Spark.variable("result", resultstr, STRING);
+  Particle.variable("result", resultstr, STRING);
 
-  Spark.variable("readStatus", readStatus);
-  Spark.variable("Temperature", TempC);
-  Spark.variable("Humidity", Humid);
+  Particle.variable("readStatus", readStatus);
+  Particle.variable("Temperature", TempC);
+  Particle.variable("Humidity", Humid);
+  Particle.variable("RSSI", rssi);
 }
-
 
 // This wrapper is in charge of calling
 // must be defined like this for the lib work
 void dht_wrapper() {
   DHT.isrCallback();
 }
-
 
 void loop()
 {
@@ -81,64 +82,56 @@ void loop()
 
       switch (result) {
         case DHTLIB_OK:
-        Spark.publish("Status", "Read sensor: OK", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: OK", 60, PRIVATE);
         readStatus = 0;
         break;
         case DHTLIB_ERROR_CHECKSUM:
-        Spark.publish("Status", "Read sensor: Error - Checksum error", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Checksum error", 60, PRIVATE);
         readStatus = 1;
         break;
         case DHTLIB_ERROR_ISR_TIMEOUT:
-        Spark.publish("Status", "Read sensor: Error - ISR time out error", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - ISR time out error", 60, PRIVATE);
         readStatus = 2;
         break;
         case DHTLIB_ERROR_RESPONSE_TIMEOUT:
-        Spark.publish("Status", "Read sensor: Error - Response time out error", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Response time out error", 60, PRIVATE);
         readStatus = 3;
         break;
         case DHTLIB_ERROR_DATA_TIMEOUT:
-        Spark.publish("Status", "Read sensor: Error - Data time out error", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Data time out error", 60, PRIVATE);
         readStatus = 4;
         break;
         case DHTLIB_ERROR_ACQUIRING:
-        Spark.publish("Status", "Read sensor: Error - Acquiring", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Acquiring", 60, PRIVATE);
         readStatus = 5;
         break;
         case DHTLIB_ERROR_DELTA:
-        Spark.publish("Status", "Read sensor: Error - Delta time to small", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Delta time to small", 60, PRIVATE);
         readStatus = 6;
         break;
         case DHTLIB_ERROR_NOTSTARTED:
-        Spark.publish("Status", "Read sensor: Error - Not started", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Not started", 60, PRIVATE);
         readStatus = 7;
         break;
         default:
-        Spark.publish("Status", "Read sensor: Unknown error", 60, PRIVATE);
+        Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Unknown error", 60, PRIVATE);
         readStatus = 8;
         break;
       }
 
       if (readStatus == 0) {
-        float temp = (float)DHT.getCelsius();
-        TempC = round(DHT.getCelsius()*10)/10;
-        int temp1 = (temp - (int)temp) * 100;
+        TempC = round(DHT.getCelsius()*10)/10.0;
+        Particle.publish((String)PHOTON_PREFIX_1"Temperature", String(TempC), 60, PRIVATE);
+        // Virtual pin for  the temperature
+        Blynk.virtualWrite(V3, TempC);
 
-        char tempInChar[32];
-        sprintf(tempInChar,"%0d.%d", (int)temp, temp1);
-        Spark.publish("Temperature", tempInChar, 60, PRIVATE);
+        Humid = round(DHT.getHumidity()*10)/10.0;
+        Particle.publish((String)PHOTON_PREFIX_1 + "Humidity", String(Humid), 60, PRIVATE);
+        // Virtual pin  for  the humidity
+        Blynk.virtualWrite(V4, Humid);
 
-        // Virtual pin 1 will be the temperature
-        Blynk.virtualWrite(V1, tempInChar);
-
-        float humid = (float)DHT.getHumidity();
-        Humid = round(DHT.getHumidity()*10)/10;
-        int humid1 = (humid - (int)humid) * 100;
-
-        sprintf(tempInChar,"%0d.%d", (int)humid, humid1);
-        Spark.publish("Humidity", tempInChar, 60, PRIVATE);
-
-        // Virtual pin 2 will be the humidity
-        Blynk.virtualWrite(V2, tempInChar);
+        // WiFi signal strength
+        rssi = WiFi.RSSI();
       }
 
       n++;  // increment counter
