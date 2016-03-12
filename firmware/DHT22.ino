@@ -14,13 +14,12 @@
 * Teemu Kulma teemu.kulma@iki.fi
 */
 
-#include "blynk.h"
 #include "PietteTech_DHT.h"
 
 // system defines
 #define DHTTYPE               DHT22    // Sensor type DHT11/21/22/AM2301/AM2302
 #define DHTPIN                4        // Digital pin for communications
-#define DHT_SAMPLE_INTERVAL   30000    // Sample every minute (1min = 60000)
+#define DHT_SAMPLE_INTERVAL   60000    // Sample every minute (1min = 60000)
 #define PHOTON_PREFIX_1       "Outside_" // Prefix for sensor
 
 // Declaration
@@ -37,18 +36,13 @@ double TempC;                          // Temperature from the sensor
 double Humid;                          // Humidity from the sensor
 int readStatus;                        // Status (int) when reading sensor
 int rssi;                              // WiFi RSSI signal strength
+int led = D7;                          // Onboard led
 
 // this is coming from http://www.instructables.com/id/Datalogging-with-Spark-Core-Google-Drive/?ALLSTEPS
 char resultstr[64]; //String to store the sensor data
 
-//DANGER - DO NOT SHARE!!!!
-char auth[] = "01234567890123456789";  // Put your blynk token here
-//DANGER - DO NOT SHARE!!!!
-
 void setup()
 {
-  Blynk.begin(auth);
-
   DHTnextSampleTime = 0;  // Start the first sample immediately
   Particle.variable("result", resultstr, STRING);
 
@@ -56,6 +50,8 @@ void setup()
   Particle.variable("Temperature", TempC);
   Particle.variable("Humidity", Humid);
   Particle.variable("RSSI", rssi);
+
+  pinMode(led, OUTPUT);
 }
 
 // This wrapper is in charge of calling
@@ -66,8 +62,6 @@ void dht_wrapper() {
 
 void loop()
 {
-  Blynk.run(); // all the Blynk magic happens here
-
   // Check if we need to start the next sample
   if (millis() > DHTnextSampleTime) {
     if (!bDHTstarted) {		// start the sample
@@ -83,55 +77,66 @@ void loop()
       switch (result) {
         case DHTLIB_OK:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: OK", 60, PRIVATE);
-        readStatus = 0;
+        readStatus = DHTLIB_OK;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(DHTLIB_OK), 60, PRIVATE);
         break;
         case DHTLIB_ERROR_CHECKSUM:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Checksum error", 60, PRIVATE);
-        readStatus = 1;
+        readStatus = DHTLIB_ERROR_CHECKSUM;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(DHTLIB_ERROR_CHECKSUM), 60, PRIVATE);
         break;
         case DHTLIB_ERROR_ISR_TIMEOUT:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - ISR time out error", 60, PRIVATE);
-        readStatus = 2;
+        readStatus = DHTLIB_ERROR_ISR_TIMEOUT;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(DHTLIB_ERROR_ISR_TIMEOUT), 60, PRIVATE);
+        System.reset();
         break;
         case DHTLIB_ERROR_RESPONSE_TIMEOUT:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Response time out error", 60, PRIVATE);
-        readStatus = 3;
+        readStatus = DHTLIB_ERROR_RESPONSE_TIMEOUT;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(DHTLIB_ERROR_RESPONSE_TIMEOUT), 60, PRIVATE);
         break;
         case DHTLIB_ERROR_DATA_TIMEOUT:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Data time out error", 60, PRIVATE);
-        readStatus = 4;
+        readStatus = DHTLIB_ERROR_DATA_TIMEOUT;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(DHTLIB_ERROR_DATA_TIMEOUT), 60, PRIVATE);
         break;
         case DHTLIB_ERROR_ACQUIRING:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Acquiring", 60, PRIVATE);
-        readStatus = 5;
+        readStatus = DHTLIB_ERROR_ACQUIRING;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(DHTLIB_ERROR_ACQUIRING), 60, PRIVATE);
         break;
         case DHTLIB_ERROR_DELTA:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Delta time to small", 60, PRIVATE);
-        readStatus = 6;
+        readStatus = DHTLIB_ERROR_DELTA;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(DHTLIB_ERROR_DELTA), 60, PRIVATE);
         break;
         case DHTLIB_ERROR_NOTSTARTED:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Error - Not started", 60, PRIVATE);
-        readStatus = 7;
+        readStatus = DHTLIB_ERROR_NOTSTARTED;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(DHTLIB_ERROR_NOTSTARTED), 60, PRIVATE);
         break;
         default:
         Particle.publish((String)PHOTON_PREFIX_1 + "Status", "Read sensor: Unknown error", 60, PRIVATE);
-        readStatus = 8;
+        readStatus = -8;
+        Particle.publish((String)PHOTON_PREFIX_1 + "StateCode", String(-8), 60, PRIVATE);
         break;
       }
 
       if (readStatus == 0) {
         TempC = round(DHT.getCelsius()*10)/10.0;
         Particle.publish((String)PHOTON_PREFIX_1"Temperature", String(TempC), 60, PRIVATE);
-        // Virtual pin for  the temperature
-        Blynk.virtualWrite(V3, TempC);
 
         Humid = round(DHT.getHumidity()*10)/10.0;
         Particle.publish((String)PHOTON_PREFIX_1 + "Humidity", String(Humid), 60, PRIVATE);
-        // Virtual pin  for  the humidity
-        Blynk.virtualWrite(V4, Humid);
 
         // WiFi signal strength
         rssi = WiFi.RSSI();
+
+        // Put led on for a while after successfully read sensor data
+        digitalWrite(led, HIGH);
+        delay(5000);
+        digitalWrite(led, LOW);
       }
 
       n++;  // increment counter

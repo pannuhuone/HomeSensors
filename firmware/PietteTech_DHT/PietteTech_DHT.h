@@ -65,7 +65,7 @@ public:
     void begin(uint8_t sigPin, uint8_t dht_type, void (*isrCallback_wrapper)());
     void isrCallback();
     int acquire();
-    int acquireAndWait();
+    int acquireAndWait(uint32_t);
     float getCelsius();
     float getFahrenheit();
     float getKelvin();
